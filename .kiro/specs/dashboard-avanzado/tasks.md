@@ -9,12 +9,17 @@
 - [x] 1.1 Crear estructura modular del proyecto
 
 
+
+
   - Crear directorios: `/public/js/widgets/`, `/public/js/charts/`, `/public/js/utils/`
   - Implementar módulo principal `DashboardManager` con patrón singleton
   - Crear archivo de configuración `dashboard-config.js` con layouts y settings
   - _Requirements: 3.1_
 
 - [ ] 1.2 Implementar sistema base de widgets
+
+
+
   - Crear clase abstracta `BaseWidget` con métodos render(), update(), configure()
   - Implementar `WidgetFactory` para crear widgets dinámicamente por tipo
   - Crear sistema de eventos para comunicación entre widgets

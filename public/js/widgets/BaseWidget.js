@@ -20,6 +20,10 @@ class BaseWidget {
         this.data = null;
         this.refreshTimer = null;
         
+        // Sistema de eventos
+        this.eventBus = window.EventBus?.getInstance();
+        this.eventListeners = [];
+        
         this.init();
     }
     
@@ -29,7 +33,14 @@ class BaseWidget {
     init() {
         this.createElement();
         this.setupEventListeners();
+        this.setupWidgetEvents();
         this.startAutoRefresh();
+        
+        // Emitir evento de creación
+        this.emitEvent('WIDGET_CREATED', {
+            widgetId: this.id,
+            widgetType: this.type
+        });
     }
     
     /**
@@ -339,7 +350,46 @@ class BaseWidget {
      * @abstract
      */
     async refresh() {
-        throw new Error('El método refresh() debe ser implementado por la clase hija');
+        try {
+            this.showLoading();
+            
+            // Emitir evento de inicio de refresh
+            this.emitEvent('WIDGET_REFRESHED', {
+                widgetId: this.id,
+                status: 'started'
+            });
+            
+            // Llamar al método de refresh específico del widget
+            await this.doRefresh();
+            
+            this.hideLoading();
+            this.hideError();
+            
+            // Emitir evento de refresh completado
+            this.emitEvent('WIDGET_REFRESHED', {
+                widgetId: this.id,
+                status: 'completed'
+            });
+            
+        } catch (error) {
+            this.hideLoading();
+            this.showError(error.message || 'Error actualizando widget');
+            
+            // Emitir evento de error
+            this.emitEvent('WIDGET_ERROR', {
+                widgetId: this.id,
+                error: error.message || 'Error desconocido',
+                stack: error.stack
+            });
+        }
+    }
+    
+    /**
+     * Método de refresh específico que debe implementar cada widget
+     * @abstract
+     */
+    async doRefresh() {
+        throw new Error('El método doRefresh() debe ser implementado por la clase hija');
     }
     
     /**
@@ -371,10 +421,154 @@ class BaseWidget {
     }
     
     /**
+     * Configura los eventos específicos del widget
+     */
+    setupWidgetEvents() {
+        if (!this.eventBus) {
+            console.warn(`Widget ${this.id}: EventBus no disponible`);
+            return;
+        }
+        
+        // Suscribirse a eventos globales relevantes
+        this.subscribeToEvent('STATS_UPDATED', (eventData) => {
+            if (!this.isLoading) {
+                this.onStatsUpdated(eventData);
+            }
+        });
+        
+        this.subscribeToEvent('DASHBOARD_THEME_CHANGED', (eventData) => {
+            this.onThemeChanged(eventData);
+        });
+        
+        this.subscribeToEvent('FILTERS_APPLIED', (eventData) => {
+            this.onFiltersApplied(eventData);
+        });
+        
+        // Permitir que widgets específicos se suscriban a eventos adicionales
+        this.setupCustomEvents();
+    }
+    
+    /**
+     * Suscribe el widget a un evento del EventBus
+     * @param {string} eventName - Nombre del evento
+     * @param {Function} callback - Función callback
+     */
+    subscribeToEvent(eventName, callback) {
+        if (!this.eventBus) {
+            return;
+        }
+        
+        const unsubscribe = this.eventBus.on(eventName, callback, this);
+        this.eventListeners.push({
+            eventName,
+            unsubscribe
+        });
+    }
+    
+    /**
+     * Suscribe el widget a un evento que se ejecuta solo una vez
+     * @param {string} eventName - Nombre del evento
+     * @param {Function} callback - Función callback
+     */
+    subscribeOnce(eventName, callback) {
+        if (!this.eventBus) {
+            return;
+        }
+        
+        const unsubscribe = this.eventBus.once(eventName, callback, this);
+        this.eventListeners.push({
+            eventName,
+            unsubscribe
+        });
+    }
+    
+    /**
+     * Emite un evento desde el widget
+     * @param {string} eventName - Nombre del evento (puede usar EventBus.EVENTS)
+     * @param {*} data - Datos del evento
+     */
+    emitEvent(eventName, data = null) {
+        if (!this.eventBus) {
+            return;
+        }
+        
+        // Usar constantes predefinidas si están disponibles
+        const fullEventName = window.EventBus.EVENTS[eventName] || eventName;
+        
+        this.eventBus.emit(fullEventName, data, {
+            source: `widget:${this.id}`,
+            widgetType: this.type
+        });
+    }
+    
+    /**
+     * Maneja actualizaciones de estadísticas
+     * @param {Object} eventData - Datos del evento
+     */
+    onStatsUpdated(eventData) {
+        // Implementación por defecto - puede ser sobrescrita
+        if (this.settings.autoRefreshOnStatsUpdate !== false) {
+            this.refresh();
+        }
+    }
+    
+    /**
+     * Maneja cambios de tema
+     * @param {Object} eventData - Datos del evento
+     */
+    onThemeChanged(eventData) {
+        // Implementación por defecto - puede ser sobrescrita
+        console.log(`Widget ${this.id}: Tema cambiado a ${eventData.data.theme}`);
+    }
+    
+    /**
+     * Maneja aplicación de filtros
+     * @param {Object} eventData - Datos del evento
+     */
+    onFiltersApplied(eventData) {
+        // Implementación por defecto - puede ser sobrescrita
+        if (this.settings.respondToFilters !== false) {
+            this.refresh();
+        }
+    }
+    
+    /**
+     * Permite a widgets específicos configurar eventos personalizados
+     * Debe ser implementado por clases hijas si necesitan eventos específicos
+     */
+    setupCustomEvents() {
+        // Implementar en clases hijas si es necesario
+    }
+    
+    /**
+     * Desuscribe todos los eventos del widget
+     */
+    unsubscribeAllEvents() {
+        for (const listener of this.eventListeners) {
+            if (listener.unsubscribe) {
+                listener.unsubscribe();
+            }
+        }
+        this.eventListeners = [];
+    }
+    
+    /**
      * Destruye el widget y limpia recursos
      */
     destroy() {
+        // Emitir evento de destrucción
+        this.emitEvent('WIDGET_DESTROYED', {
+            widgetId: this.id,
+            widgetType: this.type
+        });
+        
+        // Limpiar eventos
+        this.unsubscribeAllEvents();
+        
+        // Limpiar timers
         this.stopAutoRefresh();
+        
+        // Remover del DOM
         if (this.element && this.element.parentNode) {
             this.element.parentNode.removeChild(this.element);
         }

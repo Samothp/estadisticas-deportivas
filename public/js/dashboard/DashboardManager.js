@@ -13,6 +13,10 @@ class DashboardManager {
         this.config = null;
         this.isEditMode = false;
         
+        // Sistema de eventos
+        this.eventBus = window.EventBus?.getInstance();
+        this.setupEventListeners();
+        
         DashboardManager.instance = this;
     }
     
@@ -86,6 +90,17 @@ class DashboardManager {
      * Configura los event listeners del dashboard
      */
     setupEventListeners() {
+        // Event listeners del DOM
+        this.setupDOMEventListeners();
+        
+        // Event listeners del EventBus
+        this.setupEventBusListeners();
+    }
+    
+    /**
+     * Configura event listeners del DOM
+     */
+    setupDOMEventListeners() {
         // Toggle modo edición
         const editButton = document.getElementById('dashboard-edit-btn');
         if (editButton) {
@@ -98,8 +113,78 @@ class DashboardManager {
             saveButton.addEventListener('click', () => this.saveLayout());
         }
         
-        // Escuchar cambios en los datos para actualizar widgets
-        document.addEventListener('statsUpdated', () => this.refreshAllWidgets());
+        // Escuchar cambios en los datos para actualizar widgets (legacy)
+        document.addEventListener('statsUpdated', () => this.onStatsUpdated());
+    }
+    
+    /**
+     * Configura event listeners del EventBus
+     */
+    setupEventBusListeners() {
+        if (!this.eventBus) {
+            console.warn('DashboardManager: EventBus no disponible');
+            return;
+        }
+        
+        // Suscribirse a eventos de widgets
+        this.eventBus.on('WIDGET_ERROR', (eventData) => {
+            this.onWidgetError(eventData);
+        });
+        
+        this.eventBus.on('WIDGET_CONFIG_CHANGED', (eventData) => {
+            this.onWidgetConfigChanged(eventData);
+        });
+        
+        // Suscribirse a eventos de datos
+        this.eventBus.on('STATS_UPDATED', () => {
+            this.onStatsUpdated();
+        });
+        
+        this.eventBus.on('STATS_ADDED', (eventData) => {
+            this.onStatsAdded(eventData);
+        });
+    }
+    
+    /**
+     * Maneja errores de widgets
+     * @param {Object} eventData - Datos del evento
+     */
+    onWidgetError(eventData) {
+        console.error(`Error en widget ${eventData.data.widgetId}:`, eventData.data.error);
+        this.showNotification(`Error en widget: ${eventData.data.error}`, 'error');
+    }
+    
+    /**
+     * Maneja cambios de configuración de widgets
+     * @param {Object} eventData - Datos del evento
+     */
+    onWidgetConfigChanged(eventData) {
+        // Actualizar layout si es necesario
+        this.updateWidgetInLayout(eventData.data.widgetId, eventData.data.config);
+    }
+    
+    /**
+     * Maneja actualizaciones de estadísticas
+     */
+    onStatsUpdated() {
+        this.refreshAllWidgets();
+        
+        // Emitir evento para que otros componentes puedan reaccionar
+        if (this.eventBus) {
+            this.eventBus.emit('DASHBOARD_STATS_REFRESHED', {
+                timestamp: Date.now(),
+                widgetCount: this.widgets.size
+            });
+        }
+    }
+    
+    /**
+     * Maneja nuevas estadísticas agregadas
+     * @param {Object} eventData - Datos del evento
+     */
+    onStatsAdded(eventData) {
+        // Actualizar widgets relevantes inmediatamente
+        this.refreshRelevantWidgets(eventData.data);
     }
     
     /**
@@ -119,6 +204,19 @@ class DashboardManager {
         
         // Actualizar UI de botones
         this.updateEditModeUI();
+        
+        // Actualizar widgets para mostrar/ocultar controles de edición
+        for (const [id, widget] of this.widgets) {
+            if (widget.toggleEditControls) {
+                widget.toggleEditControls(this.isEditMode);
+            }
+        }
+        
+        // Emitir evento de cambio de modo
+        this.emitEvent('DASHBOARD_MODE_CHANGED', {
+            editMode: this.isEditMode,
+            timestamp: Date.now()
+        });
     }
     
     /**
@@ -242,6 +340,86 @@ class DashboardManager {
                 notification.parentNode.removeChild(notification);
             }
         }, 3000);
+    }
+    
+    /**
+     * Actualiza un widget específico en el layout
+     * @param {string} widgetId - ID del widget
+     * @param {Object} config - Nueva configuración
+     */
+    updateWidgetInLayout(widgetId, config) {
+        const widgetConfig = this.layout.widgets.find(w => w.id === widgetId);
+        if (widgetConfig) {
+            Object.assign(widgetConfig, config);
+            this.saveLayout();
+        }
+    }
+    
+    /**
+     * Refresca widgets relevantes basado en los datos actualizados
+     * @param {Object} statsData - Datos de las estadísticas
+     */
+    refreshRelevantWidgets(statsData) {
+        // Determinar qué widgets necesitan actualización basado en los datos
+        for (const [id, widget] of this.widgets) {
+            if (this.isWidgetRelevant(widget, statsData)) {
+                widget.refresh();
+            }
+        }
+    }
+    
+    /**
+     * Determina si un widget es relevante para ciertos datos
+     * @param {Object} widget - Widget a evaluar
+     * @param {Object} statsData - Datos de estadísticas
+     * @returns {boolean} True si es relevante
+     */
+    isWidgetRelevant(widget, statsData) {
+        // Lógica básica - puede ser extendida
+        if (!statsData) return false;
+        
+        // Si el widget tiene configuración de equipo/jugador específico
+        if (widget.settings.selectedTeam && statsData.team) {
+            return widget.settings.selectedTeam === statsData.team;
+        }
+        
+        if (widget.settings.selectedPlayer && statsData.player) {
+            return widget.settings.selectedPlayer === statsData.player;
+        }
+        
+        // Por defecto, todos los widgets son relevantes
+        return true;
+    }
+    
+    /**
+     * Emite un evento desde el dashboard
+     * @param {string} eventName - Nombre del evento
+     * @param {*} data - Datos del evento
+     */
+    emitEvent(eventName, data = null) {
+        if (!this.eventBus) {
+            return;
+        }
+        
+        const fullEventName = window.EventBus.EVENTS[eventName] || eventName;
+        this.eventBus.emit(fullEventName, data, {
+            source: 'dashboard-manager'
+        });
+    }
+    
+    /**
+     * Obtiene estadísticas del dashboard
+     * @returns {Object} Estadísticas del dashboard
+     */
+    getDashboardStats() {
+        const stats = {
+            widgetCount: this.widgets.size,
+            editMode: this.isEditMode,
+            layout: this.layout ? this.layout.widgets.length : 0,
+            eventBusStats: this.eventBus ? this.eventBus.getStats() : null
+        };
+        
+        return stats;
     }
     
     /**
