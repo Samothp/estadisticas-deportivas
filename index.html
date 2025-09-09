@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estadísticas de Fútbol</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+        nav { margin-bottom: 20px; }
+        nav button { padding: 10px; cursor: pointer; border: 1px solid #ccc; background-color: #f0f0f0; }
+        nav button.active { background-color: #007bff; color: white; border-color: #007bff; }
+        .section { width: 80%; display: flex; flex-direction: column; align-items: center; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        #home-section { text-align: center; }
+        #timerContainer { margin-bottom: 20px; text-align: center; }
+        #timer { font-size: 2em; font-weight: bold; margin-bottom: 10px; }
+        #timerControls button { margin: 0 5px; }
+        #statsForm { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; width: 300px; }
+        #formButtons { display: flex; gap: 10px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .actions button { margin-right: 5px; }
+        #actionButtons { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+        #actionButtons button { padding: 8px; border: 1px solid #ccc; background-color: #f0f0f0; cursor: pointer; }
+        #actionButtons button.selected { background-color: #007bff; color: white; border-color: #007bff; }
+        #edit-minute-notice { font-size: 0.9em; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>Estadísticas de Fútbol</h1>
+    <nav>
+        <button id="nav-home" class="active">Home</button>
+        <button id="nav-data-entry">Introducción de datos</button>
+        <button id="nav-stats">Estadísticas</button>
+    </nav>
+
+    <div id="home-section" class="section">
+        <h2>Bienvenido a la Aplicación de Estadísticas de Fútbol</h2>
+        <p>Esta herramienta te permite registrar y visualizar estadísticas de partidos de fútbol en tiempo real.</p>
+        <h3>Cómo funciona:</h3>
+        <ul>
+            <li><strong>Introducción de datos:</strong> En esta sección, puedes iniciar un partido, registrar eventos (goles, asistencias, etc.) y asignarlos a un jugador y equipo.</li>
+            <li><strong>Estadísticas:</strong> Aquí puedes ver un resumen de todas las estadísticas registradas, filtrarlas por jornada y ver un gráfico de los goleadores.</li>
+        </ul>
+        <p>¡Empieza por ir a la sección de "Introducción de datos" y haz clic en "Iniciar Partido"!</p>
+    </div>
+
+    <div id="data-entry-section" class="section" style="display: none;">
+        <div id="timerContainer">
+            <div id="timer">00:00</div>
+            <div id="timerControls">
+                <button id="startBtn">Iniciar Partido</button>
+                <button id="pauseBtn">Descanso</button>
+                <button id="endBtn">Finalizar Partido</button>
+            </div>
+        </div>
+        <form id="statsForm">
+            <input type="hidden" id="statId">
+            <input type="hidden" id="action" required>
+            <input type="number" id="jornada" placeholder="Número de Jornada" required>
+            <input type="text" id="player" placeholder="Nombre del Jugador" required>
+            <select id="team">
+                <option value="">Seleccione un Equipo</option>
+            </select>
+            <div id="actionButtons">
+                <!-- Los botones de acción se generarán aquí -->
+            </div>
+            <p id="edit-minute-notice" style="display:none;"></p>
+            <div id="formButtons">
+                <button type="submit" id="submitButton">Agregar Estadística</button>
+                <button type="button" id="cancelButton" style="display:none;">Cancelar Edición</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="stats-section" class="section" style="display: none;">
+        <h2>Estadísticas Registradas</h2>
+        <div id="filterContainer" style="margin: 10px 0; display: flex; gap: 10px; align-items: center;">
+            <input type="number" id="jornadaFilter" placeholder="Filtrar por Jornada">
+            <button type="button" id="filterButton">Filtrar</button>
+            <button type="button" id="clearFilterButton">Limpiar Filtro</button>
+        </div>
+        <table id="statsTable">
+            <thead>
+                <tr>
+                    <th>Jornada</th>
+                    <th>Jugador</th>
+                    <th>Equipo</th>
+                    <th>Acción</th>
+                    <th>Minuto</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Las filas de datos se insertarán aquí -->
+            </tbody>
+        </table>
+        <h2>Gráfico de Goles por Jugador</h2>
+        <canvas id="goalsChart" width="400" height="200"></canvas>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const navHome = document.getElementById('nav-home');
+            const navDataEntry = document.getElementById('nav-data-entry');
+            const navStats = document.getElementById('nav-stats');
+            const homeSection = document.getElementById('home-section');
+            const dataEntrySection = document.getElementById('data-entry-section');
+            const statsSection = document.getElementById('stats-section');
+
+            const form = document.getElementById('statsForm');
+            const tableBody = document.querySelector('#statsTable tbody');
+            const chartCanvas = document.getElementById('goalsChart').getContext('2d');
+            const statIdInput = document.getElementById('statId');
+            const actionInput = document.getElementById('action');
+            const submitButton = document.getElementById('submitButton');
+            const cancelButton = document.getElementById('cancelButton');
+            const teamDropdown = document.getElementById('team');
+            const actionButtonsContainer = document.getElementById('actionButtons');
+            const minuteNotice = document.getElementById('edit-minute-notice');
+
+            const timerDisplay = document.getElementById('timer');
+            const startBtn = document.getElementById('startBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const endBtn = document.getElementById('endBtn');
+
+            let seconds = 0;
+            let timerInterval = null;
+            let isRunning = false;
+
+            const jornadaFilterInput = document.getElementById('jornadaFilter');
+            const filterButton = document.getElementById('filterButton');
+            const clearFilterButton = document.getElementById('clearFilterButton');
+
+            let goalsChart;
+
+            const teams = [
+                'Alavés', 'Athletic Club', 'Atlético de Madrid', 'Barcelona', 'Real Betis', 'Celta de Vigo', 'Eibar',
+                'Getafe', 'Girona', 'Las Palmas', 'Mallorca', 'Osasuna', 'Rayo Vallecano', 'Real Madrid', 'Real Sociedad',
+                'Sevilla FC', 'Sporting de Gijón', 'Valencia', 'Villarreal', 'Real Zaragoza', 'Otro'
+            ];
+            const actions = ['Gol', 'Asistencia', 'Falta', 'Tarjeta Amarilla', 'Tarjeta Roja', 'Sustitución'];
+
+            // --- Navigation Logic ---
+            function showSection(sectionToShow, activeNav) {
+                [homeSection, dataEntrySection, statsSection].forEach(section => {
+                    section.style.display = 'none';
+                });
+                sectionToShow.style.display = 'flex';
+
+                [navHome, navDataEntry, navStats].forEach(nav => {
+                    nav.classList.remove('active');
+                });
+                activeNav.classList.add('active');
+            }
+
+            navHome.addEventListener('click', () => showSection(homeSection, navHome));
+            navDataEntry.addEventListener('click', () => showSection(dataEntrySection, navDataEntry));
+            navStats.addEventListener('click', () => {
+                showSection(statsSection, navStats);
+                fetchStats(jornadaFilterInput.value);
+            });
+
+            // --- Timer Logic ---
+            function updateTimerDisplay() {
+                const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+                const secs = (seconds % 60).toString().padStart(2, '0');
+                timerDisplay.textContent = `${mins}:${secs}`;
+            }
+
+            startBtn.addEventListener('click', () => {
+                if (!isRunning) {
+                    isRunning = true;
+                    timerInterval = setInterval(() => {
+                        seconds++;
+                        updateTimerDisplay();
+                    }, 1000);
+                }
+            });
+
+            pauseBtn.addEventListener('click', () => {
+                isRunning = false;
+                clearInterval(timerInterval);
+            });
+
+            endBtn.addEventListener('click', () => {
+                isRunning = false;
+                clearInterval(timerInterval);
+                seconds = 0;
+                updateTimerDisplay();
+            });
+
+            teams.forEach(team => {
+                const option = document.createElement('option');
+                option.value = team;
+                option.textContent = team;
+                teamDropdown.appendChild(option);
+            });
+
+            actions.forEach(action => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = action;
+                button.dataset.action = action;
+                actionButtonsContainer.appendChild(button);
+            });
+
+            actionButtonsContainer.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    const selectedAction = e.target.dataset.action;
+                    actionInput.value = selectedAction;
+                    Array.from(actionButtonsContainer.children).forEach(btn => {
+                        btn.classList.remove('selected');
+                    });
+                    e.target.classList.add('selected');
+                }
+            });
+
+            fetchStats();
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const player = document.getElementById('player').value;
+                const team = teamDropdown.value;
+                const action = actionInput.value;
+                const jornada = parseInt(document.getElementById('jornada').value, 10);
+                const id = statIdInput.value;
+                const isEditing = !!id;
+
+                if (!action) {
+                    alert('Por favor, seleccione una acción.');
+                    return;
+                }
+
+                const minute = isEditing ? parseInt(form.dataset.originalMinute, 10) : Math.floor(seconds / 60);
+
+                if (isNaN(minute)) {
+                    alert('Error al obtener el minuto.');
+                    return;
+                }
+                if (!isEditing && !isRunning) {
+                    alert('Por favor, inicie el partido antes de añadir una estadística.');
+                    return;
+                }
+
+                const statData = { player, team, action, minute, jornada };
+                const url = isEditing ? `/api/stats/${id}` : '/api/stats';
+                const method = isEditing ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(statData),
+                });
+
+                if (response.ok) {
+                    resetForm();
+                } else {
+                    const error = await response.text();
+                    alert(`Error al ${isEditing ? 'actualizar' : 'guardar'} la estadística: ${error}`);
+                }
+            });
+
+            cancelButton.addEventListener('click', resetForm);
+            filterButton.addEventListener('click', () => fetchStats(jornadaFilterInput.value));
+            clearFilterButton.addEventListener('click', () => {
+                jornadaFilterInput.value = '';
+                fetchStats();
+            });
+
+            async function fetchStats(jornada = '') {
+                let url = '/api/stats';
+                if (jornada && jornada.trim() !== '') {
+                    url += `?jornada=${jornada}`;
+                }
+                const response = await fetch(url);
+                const stats = await response.json();
+                tableBody.innerHTML = '';
+                stats.forEach(stat => {
+                    const row = tableBody.insertRow();
+                    row.insertCell(0).textContent = stat.jornada;
+                    row.insertCell(1).textContent = stat.player;
+                    row.insertCell(2).textContent = stat.team;
+                    row.insertCell(3).textContent = stat.action;
+                    row.insertCell(4).textContent = stat.minute;
+                    addActions(row.insertCell(5), stat);
+                });
+                updateChart(stats);
+            }
+
+            function addActions(cell, stat) {
+                const editButton = document.createElement('button');
+                editButton.textContent = 'Editar';
+                editButton.onclick = () => editStat(stat);
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Eliminar';
+                deleteButton.onclick = () => deleteStat(stat.id);
+                cell.appendChild(editButton);
+                cell.appendChild(deleteButton);
+            }
+
+            function editStat(stat) {
+                statIdInput.value = stat.id;
+                form.dataset.originalMinute = stat.minute;
+                document.getElementById('jornada').value = stat.jornada;
+                document.getElementById('player').value = stat.player;
+                teamDropdown.value = stat.team || '';
+                actionInput.value = stat.action;
+                Array.from(actionButtonsContainer.children).forEach(btn => {
+                    btn.classList.toggle('selected', btn.dataset.action === stat.action);
+                });
+                minuteNotice.textContent = `Editando evento del minuto ${stat.minute}. El minuto no cambiará al guardar.`;
+                minuteNotice.style.display = 'block';
+                submitButton.textContent = 'Actualizar Estadística';
+                cancelButton.style.display = 'inline';
+                showSection(dataEntrySection, navDataEntry);
+            }
+
+            async function deleteStat(id) {
+                if (!confirm('¿Estás seguro de que quieres eliminar esta estadística?')) return;
+                const response = await fetch(`/api/stats/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    fetchStats(jornadaFilterInput.value);
+                } else {
+                    alert('Error al eliminar la estadística');
+                }
+            }
+
+            function resetForm() {
+                form.reset();
+                statIdInput.value = '';
+                actionInput.value = '';
+                delete form.dataset.originalMinute;
+                minuteNotice.style.display = 'none';
+                Array.from(actionButtonsContainer.children).forEach(btn => {
+                    btn.classList.remove('selected');
+                });
+                submitButton.textContent = 'Agregar Estadística';
+                cancelButton.style.display = 'none';
+            }
+
+            function updateChart(stats) {
+                const goalsByPlayer = stats
+                    .filter(stat => stat.action.toLowerCase() === 'gol')
+                    .reduce((acc, stat) => {
+                        acc[stat.player] = (acc[stat.player] || 0) + 1;
+                        return acc;
+                    }, {});
+                const players = Object.keys(goalsByPlayer);
+                const goals = Object.values(goalsByPlayer);
+                if (goalsChart) {
+                    goalsChart.destroy();
+                }
+                goalsChart = new Chart(chartCanvas, {
+                    type: 'bar',
+                    data: {
+                        labels: players,
+                        datasets: [{
+                            label: 'Goles por Jugador',
+                            data: goals,
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            }
+            
+            // Show Home section by default
+            showSection(homeSection, navHome);
+        });
+    </script>
+</body>
+</html>
+

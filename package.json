@@ -1,0 +1,67 @@
+{
+  "name": "estadisticas-deportivas",
+  "version": "1.0.0",
+  "description": "Aplicación web moderna para el registro, análisis y visualización de estadísticas deportivas en tiempo real",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "echo 'Linting will be configured with ESLint in future updates'",
+    "prepare": "echo 'Setting up git hooks...'"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "**/*.js",
+      "!node_modules/**",
+      "!coverage/**",
+      "!jest.config.js"
+    ],
+    "coverageReporters": ["text", "lcov", "html"],
+    "coverageThreshold": {
+      "global": {
+        "branches": 70,
+        "functions": 70,
+        "lines": 70,
+        "statements": 70
+      }
+    }
+  },
+  "keywords": [
+    "football",
+    "soccer",
+    "statistics",
+    "sports",
+    "analytics",
+    "dashboard",
+    "real-time",
+    "nodejs",
+    "express",
+    "sqlite"
+  ],
+  "author": "Tu Nombre <tu-email@ejemplo.com>",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tu-usuario/estadisticas-deportivas.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tu-usuario/estadisticas-deportivas/issues"
+  },
+  "homepage": "https://github.com/tu-usuario/estadisticas-deportivas#readme",
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "jest": "^30.0.5",
+    "supertest": "^7.1.4"
+  }
+}
