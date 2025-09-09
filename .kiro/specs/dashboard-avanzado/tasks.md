@@ -25,6 +25,7 @@
 - [x] 1.3 Configurar grid system responsive
 
 
+
   - Implementar CSS Grid layout con 12 columnas y breakpoints móvil/tablet/desktop
   - Crear clases CSS para tamaños de widget (small, medium, large, xlarge)
   - Integrar librería Sortable.js para drag & drop functionality
@@ -36,20 +37,26 @@
   - Implementar cache básico en memoria para optimizar cálculos repetitivos
   - _Requirements: 1.1, 1.2, 1.3_
 
-- [ ] 2.1 Crear MetricsCalculator service
+- [x] 2.1 Crear MetricsCalculator service
+
+
   - Implementar cálculos de métricas por jugador: goles/partido, asistencias/partido, eficiencia
   - Crear métodos para métricas de equipo: promedio goles, distribución acciones
   - Implementar análisis de tendencias con detección de mejoras/deterioros >20%
   - _Requirements: 1.1, 1.2, 1.3_
 
-- [ ] 2.2 Extender API con endpoints de métricas
+- [x] 2.2 Extender API con endpoints de métricas
+
+
   - Crear ruta GET `/api/metrics/player/:id` para métricas de jugador
   - Crear ruta GET `/api/metrics/team/:team` para métricas de equipo
   - Crear ruta GET `/api/metrics/trends` para análisis de tendencias
   - Implementar validación de parámetros y manejo de errores
   - _Requirements: 1.1, 1.2, 1.3_
 
-- [ ] 2.3 Implementar sistema de cache básico
+- [x] 2.3 Implementar sistema de cache básico
+
+
   - Crear clase `MetricsCache` con TTL de 5 minutos para cálculos
   - Implementar invalidación de cache cuando se agregan nuevas estadísticas
   - Crear middleware de cache para endpoints de métricas

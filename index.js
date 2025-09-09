@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const statsRoutes = require('./routes/stats');
+const metricsRoutes = require('./routes/metrics');
 
 const app = express();
 const port = 3000;
@@ -13,6 +14,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Rutas de la API
 app.use('/api', statsRoutes);
+app.use('/api/metrics', metricsRoutes);
 
 // Servir el archivo HTML principal
 app.get('/', (req, res) => {
