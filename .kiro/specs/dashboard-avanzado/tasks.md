@@ -16,10 +16,7 @@
   - Crear archivo de configuración `dashboard-config.js` con layouts y settings
   - _Requirements: 3.1_
 
-- [ ] 1.2 Implementar sistema base de widgets
-
-
-
+- [x] 1.2 Implementar sistema base de widgets
   - Crear clase abstracta `BaseWidget` con métodos render(), update(), configure()
   - Implementar `WidgetFactory` para crear widgets dinámicamente por tipo
   - Crear sistema de eventos para comunicación entre widgets
