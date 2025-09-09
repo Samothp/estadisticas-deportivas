@@ -20,7 +20,11 @@
       "!coverage/**",
       "!jest.config.js"
     ],
-    "coverageReporters": ["text", "lcov", "html"],
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html"
+    ],
     "coverageThreshold": {
       "global": {
         "branches": 70,
@@ -57,6 +61,7 @@
     "npm": ">=6.0.0"
   },
   "dependencies": {
+    "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "sqlite3": "^5.1.7"
   },
