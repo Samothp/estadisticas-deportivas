@@ -22,7 +22,9 @@
   - Crear sistema de eventos para comunicación entre widgets
   - _Requirements: 3.2, 3.3_
 
-- [ ] 1.3 Configurar grid system responsive
+- [x] 1.3 Configurar grid system responsive
+
+
   - Implementar CSS Grid layout con 12 columnas y breakpoints móvil/tablet/desktop
   - Crear clases CSS para tamaños de widget (small, medium, large, xlarge)
   - Integrar librería Sortable.js para drag & drop functionality

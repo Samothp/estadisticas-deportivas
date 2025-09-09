@@ -94,6 +94,8 @@
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: var(--spacing-lg);
     margin-top: var(--spacing-lg);
+    min-height: 400px;
+    position: relative;
 }
 
 #dashboard-container.edit-mode {
@@ -101,6 +103,27 @@
     border-radius: var(--border-radius);
     padding: var(--spacing-md);
     background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Grid responsive system */
+.dashboard-grid-1 {
+    grid-template-columns: 1fr;
+}
+
+.dashboard-grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.dashboard-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.dashboard-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.dashboard-grid-auto {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 }
 
 /* Widget Base Styles */

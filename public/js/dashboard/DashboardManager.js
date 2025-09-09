@@ -17,6 +17,12 @@ class DashboardManager {
         this.eventBus = window.EventBus?.getInstance();
         this.setupEventListeners();
         
+        // Sistema de drag & drop
+        this.dragDropManager = window.DragDropManager?.getInstance();
+        
+        // Sistema de grid responsive
+        this.responsiveGrid = window.ResponsiveGrid?.getInstance();
+        
         DashboardManager.instance = this;
     }
     
@@ -54,6 +60,11 @@ class DashboardManager {
             return;
         }
         
+        // Inicializar sistema responsive si no está inicializado
+        if (this.responsiveGrid && !this.responsiveGrid.container) {
+            this.responsiveGrid.init(container, this.config.grid);
+        }
+        
         // Limpiar container
         container.innerHTML = '';
         
@@ -64,6 +75,11 @@ class DashboardManager {
                 if (widget) {
                     this.widgets.set(widgetConfig.id, widget);
                     container.appendChild(widget.element);
+                    
+                    // Agregar al sistema responsive
+                    if (this.responsiveGrid) {
+                        this.responsiveGrid.addWidget(widget.element);
+                    }
                 }
             } catch (error) {
                 console.error(`Error creando widget ${widgetConfig.id}:`, error);
@@ -223,15 +239,23 @@ class DashboardManager {
      * Habilita funcionalidad de drag & drop
      */
     enableDragAndDrop() {
-        // Se implementará cuando integremos Sortable.js
-        console.log('Drag & Drop habilitado');
+        if (this.dragDropManager) {
+            const container = document.getElementById('dashboard-container');
+            this.dragDropManager.enable(container);
+            console.log('Drag & Drop habilitado');
+        } else {
+            console.warn('DragDropManager no disponible');
+        }
     }
     
     /**
      * Deshabilita funcionalidad de drag & drop
      */
     disableDragAndDrop() {
-        console.log('Drag & Drop deshabilitado');
+        if (this.dragDropManager) {
+            this.dragDropManager.disable();
+            console.log('Drag & Drop deshabilitado');
+        }
     }
     
     /**
@@ -295,6 +319,11 @@ class DashboardManager {
             const container = document.getElementById('dashboard-container');
             container.appendChild(widget.element);
             
+            // Agregar al sistema de drag & drop si está habilitado
+            if (this.dragDropManager && this.isEditMode) {
+                this.dragDropManager.addWidget(widget.element);
+            }
+            
             console.log(`Widget ${config.id} agregado correctamente`);
         }
     }
@@ -306,9 +335,19 @@ class DashboardManager {
     removeWidget(widgetId) {
         const widget = this.widgets.get(widgetId);
         if (widget) {
+            // Remover del sistema de drag & drop
+            if (this.dragDropManager && widget.element) {
+                this.dragDropManager.removeWidget(widget.element);
+            }
+            
             // Remover del DOM
             if (widget.element && widget.element.parentNode) {
                 widget.element.parentNode.removeChild(widget.element);
+            }
+            
+            // Destruir el widget
+            if (widget.destroy) {
+                widget.destroy();
             }
             
             // Remover del Map
@@ -408,6 +447,40 @@ class DashboardManager {
     }
     
     /**
+     * Actualiza la posición de un widget después del drag & drop
+     * @param {string} widgetId - ID del widget
+     * @param {number} newPosition - Nueva posición
+     */
+    updateWidgetPosition(widgetId, newPosition) {
+        const widgetConfig = this.layout.widgets.find(w => w.id === widgetId);
+        if (!widgetConfig) return;
+        
+        // Remover de la posición actual
+        const currentIndex = this.layout.widgets.indexOf(widgetConfig);
+        this.layout.widgets.splice(currentIndex, 1);
+        
+        // Insertar en la nueva posición
+        this.layout.widgets.splice(newPosition, 0, widgetConfig);
+        
+        // Actualizar posiciones en el layout
+        this.layout.widgets.forEach((widget, index) => {
+            widget.position = { x: index % 4, y: Math.floor(index / 4) };
+        });
+        
+        // Guardar layout
+        this.saveLayout();
+        
+        // Emitir evento
+        this.emitEvent('DASHBOARD_LAYOUT_CHANGED', {
+            widgetId: widgetId,
+            newPosition: newPosition,
+            layout: this.layout
+        });
+        
+        console.log(`Widget ${widgetId} movido a posición ${newPosition}`);
+    }
+    
+    /**
      * Obtiene estadísticas del dashboard
      * @returns {Object} Estadísticas del dashboard
      */
@@ -416,7 +489,8 @@ class DashboardManager {
             widgetCount: this.widgets.size,
             editMode: this.isEditMode,
             layout: this.layout ? this.layout.widgets.length : 0,
-            eventBusStats: this.eventBus ? this.eventBus.getStats() : null
+            eventBusStats: this.eventBus ? this.eventBus.getStats() : null,
+            dragDropState: this.dragDropManager ? this.dragDropManager.getState() : null
         };
         
         return stats;
