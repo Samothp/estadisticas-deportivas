@@ -68,6 +68,7 @@
 
 - [x] 3. Desarrollar Advanced Charts Engine
 
+
   - Extender Chart.js con 4 nuevos tipos de gráficos interactivos
   - Implementar TimelineChart para evolución temporal de métricas
   - Crear ComparisonChart para comparativas entre entidades
@@ -106,32 +107,49 @@
   - Agregar interactividad para drill-down a detalles específicos
   - _Requirements: 2.5, 2.6_
 
-- [ ] 4. Implementar widgets específicos del dashboard
+- [x] 4. Implementar widgets específicos del dashboard
+
+
+
   - Crear TopPlayersWidget con ranking de goleadores
   - Desarrollar TeamStatsWidget con métricas de equipo
   - Implementar TrendChartWidget con gráficos de tendencias
   - Crear RecentActionsWidget con últimas acciones registradas
   - _Requirements: 3.1, 3.5_
 
-- [ ] 4.1 Crear TopPlayersWidget
+- [x] 4.1 Crear TopPlayersWidget
+
+
+
   - Implementar widget que muestre top 5 goleadores con fotos placeholder
   - Agregar información de equipo, goles y tendencia para cada jugador
   - Implementar configuración para cambiar número de jugadores mostrados
   - _Requirements: 3.5_
 
-- [ ] 4.2 Desarrollar TeamStatsWidget
+- [x] 4.2 Desarrollar TeamStatsWidget
+
+
+
+
   - Crear widget con métricas clave del equipo seleccionado
   - Mostrar promedio de goles, distribución de acciones, rendimiento por jornada
   - Implementar selector de equipo en configuración del widget
   - _Requirements: 3.3, 3.5_
 
-- [ ] 4.3 Implementar TrendChartWidget
+- [x] 4.3 Implementar TrendChartWidget
+
+
+
+
+
   - Crear widget con gráfico de tendencias configurable
   - Permitir selección de métrica y entidad (jugador/equipo) a mostrar
   - Integrar con TimelineChart para visualización temporal
   - _Requirements: 3.3, 3.5_
 
-- [ ] 4.4 Crear RecentActionsWidget
+- [x] 4.4 Crear RecentActionsWidget
+
+
   - Implementar widget que muestre las últimas 10 acciones registradas
   - Agregar filtros por tipo de acción y equipo
   - Incluir timestamps relativos y enlaces a detalles completos

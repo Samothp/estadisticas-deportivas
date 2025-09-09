@@ -39,6 +39,38 @@ class DashboardManager {
     }
     
     /**
+     * Inicializa el dashboard con widgets específicos
+     * @param {Array} widgets - Array de configuraciones de widgets
+     */
+    async initWithWidgets(widgets) {
+        console.log('DashboardManager.initWithWidgets llamado con:', widgets);
+        
+        // Configuración básica por defecto
+        this.config = {
+            grid: {
+                columns: 4,
+                gap: 16,
+                breakpoints: {
+                    mobile: 768,
+                    tablet: 1024
+                }
+            }
+        };
+        
+        // Crear layout con los widgets proporcionados
+        this.layout = {
+            widgets: widgets || []
+        };
+        
+        console.log('Layout creado:', this.layout);
+        
+        // Cargar widgets
+        await this.loadWidgets();
+        this.setupEventListeners();
+        console.log('Dashboard Manager inicializado con widgets específicos');
+    }
+    
+    /**
      * Carga el layout del dashboard desde localStorage o configuración por defecto
      */
     async loadLayout() {
@@ -54,11 +86,15 @@ class DashboardManager {
      * Carga y renderiza todos los widgets configurados
      */
     async loadWidgets() {
-        const container = document.getElementById('dashboard-container');
+        console.log('DashboardManager.loadWidgets iniciado');
+        const container = document.getElementById('dashboard-grid');
         if (!container) {
             console.error('Container del dashboard no encontrado');
             return;
         }
+        
+        console.log('Container encontrado:', container);
+        console.log('Widgets a cargar:', this.layout?.widgets);
         
         // Inicializar sistema responsive si no está inicializado
         if (this.responsiveGrid && !this.responsiveGrid.container) {
@@ -69,10 +105,19 @@ class DashboardManager {
         container.innerHTML = '';
         
         // Crear widgets según el layout
+        if (!this.layout.widgets || this.layout.widgets.length === 0) {
+            console.warn('No hay widgets para cargar');
+            return;
+        }
+        
+        console.log(`Creando ${this.layout.widgets.length} widgets...`);
+        
         for (const widgetConfig of this.layout.widgets) {
             try {
+                console.log(`Creando widget: ${widgetConfig.id} (${widgetConfig.type})`);
                 const widget = await this.createWidget(widgetConfig);
                 if (widget) {
+                    console.log(`Widget ${widgetConfig.id} creado exitosamente`);
                     this.widgets.set(widgetConfig.id, widget);
                     container.appendChild(widget.element);
                     
@@ -80,11 +125,15 @@ class DashboardManager {
                     if (this.responsiveGrid) {
                         this.responsiveGrid.addWidget(widget.element);
                     }
+                } else {
+                    console.error(`Widget ${widgetConfig.id} no pudo ser creado`);
                 }
             } catch (error) {
                 console.error(`Error creando widget ${widgetConfig.id}:`, error);
             }
         }
+        
+        console.log(`Widgets cargados: ${this.widgets.size}`);
     }
     
     /**
@@ -93,13 +142,14 @@ class DashboardManager {
      * @returns {Object} Widget creado
      */
     async createWidget(config) {
-        const WidgetFactory = window.WidgetFactory;
-        if (!WidgetFactory) {
+        const widgetFactory = window.WidgetFactory?.getInstance();
+        if (!widgetFactory) {
             console.error('WidgetFactory no está disponible');
             return null;
         }
         
-        return WidgetFactory.create(config);
+        console.log('Creando widget:', config);
+        return widgetFactory.create(config);
     }
     
     /**
@@ -208,7 +258,7 @@ class DashboardManager {
      */
     toggleEditMode() {
         this.isEditMode = !this.isEditMode;
-        const container = document.getElementById('dashboard-container');
+        const container = document.getElementById('dashboard-grid');
         
         if (this.isEditMode) {
             container.classList.add('edit-mode');
@@ -240,7 +290,7 @@ class DashboardManager {
      */
     enableDragAndDrop() {
         if (this.dragDropManager) {
-            const container = document.getElementById('dashboard-container');
+            const container = document.getElementById('dashboard-grid');
             this.dragDropManager.enable(container);
             console.log('Drag & Drop habilitado');
         } else {
@@ -316,7 +366,7 @@ class DashboardManager {
             this.widgets.set(config.id, widget);
             this.layout.widgets.push(config);
             
-            const container = document.getElementById('dashboard-container');
+            const container = document.getElementById('dashboard-grid');
             container.appendChild(widget.element);
             
             // Agregar al sistema de drag & drop si está habilitado

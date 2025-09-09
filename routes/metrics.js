@@ -6,6 +6,7 @@ const { metricsCache, cacheStatsMiddleware, clearCacheMiddleware } = require('..
 // Rutas para métricas de jugadores (con cache)
 router.get('/players', metricsCache(15 * 60 * 1000), metricsController.getAvailablePlayers); // 15 min cache
 router.get('/player/:id', metricsCache(10 * 60 * 1000), metricsController.getPlayerMetrics); // 10 min cache
+router.get('/top-players', metricsCache(5 * 60 * 1000), metricsController.getTopPlayers); // 5 min cache
 
 // Rutas para métricas de equipos (con cache)
 router.get('/teams', metricsCache(15 * 60 * 1000), metricsController.getAvailableTeams); // 15 min cache

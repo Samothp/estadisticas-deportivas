@@ -32,6 +32,7 @@
         <button id="nav-home" class="active">Home</button>
         <button id="nav-data-entry">Introducción de datos</button>
         <button id="nav-stats">Estadísticas</button>
+        <button id="nav-dashboard">Dashboard</button>
     </nav>
 
     <div id="home-section" class="section">
@@ -99,15 +100,44 @@
         <canvas id="goalsChart" width="400" height="200"></canvas>
     </div>
 
+    <!-- Dashboard Avanzado Section -->
+    <div id="dashboard-section" class="section dashboard-section" style="display: none;">
+        <div class="dashboard-header">
+            <h2>Dashboard Avanzado</h2>
+            <div class="dashboard-controls">
+                <button id="dashboard-edit-btn" class="btn btn-secondary">Editar Dashboard</button>
+                <button id="dashboard-add-widget-btn" class="btn btn-primary">Agregar Widget</button>
+            </div>
+        </div>
+        <div id="dashboard-grid" class="dashboard-grid">
+            <!-- Los widgets se cargarán aquí dinámicamente -->
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Dashboard Scripts -->
+    <script src="/js/utils/EventBus.js"></script>
+    <script src="/js/utils/EventHelpers.js"></script>
+    <script src="/js/utils/DragDropManager.js"></script>
+    <script src="/js/utils/ResponsiveGrid.js"></script>
+    <script src="/js/widgets/BaseWidget.js"></script>
+    <script src="/js/widgets/WidgetFactory.js"></script>
+    <script src="/js/widgets/TopPlayersWidget.js"></script>
+    <script src="/js/widgets/TeamStatsWidget.js"></script>
+    <script src="/js/widgets/TrendChartWidget.js"></script>
+    <script src="/js/widgets/RecentActionsWidget.js"></script>
+    <script src="/js/config/dashboard-config.js"></script>
+    <script src="/js/dashboard/DashboardManager.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const navHome = document.getElementById('nav-home');
             const navDataEntry = document.getElementById('nav-data-entry');
             const navStats = document.getElementById('nav-stats');
+            const navDashboard = document.getElementById('nav-dashboard');
             const homeSection = document.getElementById('home-section');
             const dataEntrySection = document.getElementById('data-entry-section');
             const statsSection = document.getElementById('stats-section');
+            const dashboardSection = document.getElementById('dashboard-section');
 
             const form = document.getElementById('statsForm');
             const tableBody = document.querySelector('#statsTable tbody');
@@ -144,12 +174,12 @@
 
             // --- Navigation Logic ---
             function showSection(sectionToShow, activeNav) {
-                [homeSection, dataEntrySection, statsSection].forEach(section => {
+                [homeSection, dataEntrySection, statsSection, dashboardSection].forEach(section => {
                     section.style.display = 'none';
                 });
                 sectionToShow.style.display = 'flex';
 
-                [navHome, navDataEntry, navStats].forEach(nav => {
+                [navHome, navDataEntry, navStats, navDashboard].forEach(nav => {
                     nav.classList.remove('active');
                 });
                 activeNav.classList.add('active');
@@ -160,6 +190,11 @@
             navStats.addEventListener('click', () => {
                 showSection(statsSection, navStats);
                 fetchStats(jornadaFilterInput.value);
+            });
+            navDashboard.addEventListener('click', () => {
+                showSection(dashboardSection, navDashboard);
+                // Pequeño delay para asegurar que todos los scripts estén cargados
+                setTimeout(initializeDashboard, 100);
             });
 
             // --- Timer Logic ---
@@ -370,6 +405,113 @@
                 });
             }
             
+            // --- Dashboard Logic ---
+            function initializeDashboard() {
+                console.log('=== INICIANDO DASHBOARD ===');
+                
+                // Verificar que todos los componentes estén disponibles
+                console.log('DashboardManager disponible:', !!window.DashboardManager);
+                console.log('WidgetFactory disponible:', !!window.WidgetFactory);
+                console.log('BaseWidget disponible:', !!window.BaseWidget);
+                console.log('TopPlayersWidget disponible:', !!window.TopPlayersWidget);
+                console.log('TeamStatsWidget disponible:', !!window.TeamStatsWidget);
+                console.log('EventBus disponible:', !!window.EventBus);
+                
+                // Verificar widgets registrados
+                const factory = window.WidgetFactory?.getInstance();
+                if (factory) {
+                    console.log('Widgets registrados:', factory.getAvailableTypes());
+                }
+                
+                // Verificar el contenedor
+                const container = document.getElementById('dashboard-grid');
+                console.log('Container dashboard-grid encontrado:', !!container);
+                
+                if (!container) {
+                    console.error('ERROR: No se encontró el contenedor dashboard-grid');
+                    return;
+                }
+                
+                // Inicializar el dashboard si no está ya inicializado
+                if (!window.dashboardInitialized) {
+                    console.log('Inicializando dashboard por primera vez...');
+                    
+                    try {
+                        const dashboardManager = window.DashboardManager?.getInstance();
+                        console.log('DashboardManager instance:', dashboardManager);
+                        
+                        if (dashboardManager) {
+                            // Configurar dashboard con widgets por defecto
+                            const defaultWidgets = [
+                                {
+                                    id: 'top-players-1',
+                                    type: 'TopPlayersWidget',
+                                    size: 'medium',
+                                    position: { x: 0, y: 0 },
+                                    settings: {
+                                        title: 'Top Goleadores',
+                                        maxPlayers: 5,
+                                        jornadaRange: 'all'
+                                    }
+                                },
+                                {
+                                    id: 'team-stats-1',
+                                    type: 'TeamStatsWidget',
+                                    size: 'large',
+                                    position: { x: 2, y: 0 },
+                                    settings: {
+                                        title: 'Estadísticas de Equipo',
+                                        selectedTeam: 'Real Madrid',
+                                        jornadaRange: 'all'
+                                    }
+                                },
+                                {
+                                    id: 'trend-chart-1',
+                                    type: 'TrendChartWidget',
+                                    size: 'large',
+                                    position: { x: 0, y: 1 },
+                                    settings: {
+                                        title: 'Tendencias de Goles',
+                                        entityType: 'player',
+                                        selectedEntity: 'Carlos Rodríguez',
+                                        selectedMetric: 'goals',
+                                        timeRange: 'last10'
+                                    }
+                                },
+                                {
+                                    id: 'recent-actions-1',
+                                    type: 'RecentActionsWidget',
+                                    size: 'medium',
+                                    position: { x: 2, y: 1 },
+                                    settings: {
+                                        title: 'Acciones Recientes',
+                                        maxActions: 8,
+                                        autoRefresh: true,
+                                        showTimestamps: true,
+                                        showPlayerPhotos: true
+                                    }
+                                }
+                            ];
+                            
+                            console.log('Widgets por defecto:', defaultWidgets);
+                            
+                            dashboardManager.initWithWidgets(defaultWidgets).then(() => {
+                                console.log('Dashboard inicializado exitosamente');
+                                window.dashboardInitialized = true;
+                            }).catch(error => {
+                                console.error('Error inicializando dashboard:', error);
+                            });
+                        } else {
+                            console.error('ERROR: No se pudo obtener instancia de DashboardManager');
+                        }
+                    } catch (error) {
+                        console.error('ERROR en initializeDashboard:', error);
+                    }
+                } else {
+                    console.log('Dashboard ya está inicializado');
+                }
+            }
+
             // Show Home section by default
             showSection(homeSection, navHome);
         });

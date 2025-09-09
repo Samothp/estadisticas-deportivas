@@ -402,4 +402,52 @@ async function getGlobalStats(jornadaRange) {
             });
         });
     });
-}
+};
+
+/**
+ * Obtiene el ranking de mejores goleadores
+ */
+exports.getTopPlayers = async (req, res) => {
+    try {
+        const { limit = 5, range = 'all' } = req.query;
+        
+        // Validar parámetros
+        const limitNum = parseInt(limit);
+        if (isNaN(limitNum) || limitNum < 1 || limitNum > 50) {
+            return res.status(400).json({
+                error: 'Límite inválido',
+                message: 'El límite debe ser un número entre 1 y 50'
+            });
+        }
+        
+        const validRanges = ['all', 'current', 'last5'];
+        if (!validRanges.includes(range)) {
+            return res.status(400).json({
+                error: 'Rango inválido',
+                message: 'El rango debe ser: all, current, o last5'
+            });
+        }
+        
+        // Calcular ranking de goleadores
+        const topPlayers = await metricsCalculator.calculateTopPlayers(limitNum, range);
+        
+        res.json({
+            success: true,
+            data: topPlayers,
+            metadata: {
+                limit: limitNum,
+                range: range,
+                timestamp: new Date().toISOString(),
+                count: topPlayers.length
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error obteniendo top goleadores:', error);
+        res.status(500).json({
+            error: 'Error interno del servidor',
+            message: 'No se pudieron obtener los datos de goleadores',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};

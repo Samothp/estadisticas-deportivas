@@ -653,6 +653,195 @@ class MetricsCalculator {
             keys: Array.from(this.cache.keys())
         };
     }
-}
+    
+    /**
+     * Calcula el ranking de mejores goleadores
+     * @param {number} limit - Número máximo de jugadores a retornar
+     * @param {string} range - Rango de jornadas ('all', 'current', 'last5')
+     * @returns {Promise<Array>} Array de jugadores ordenados por goles
+     */
+    async calculateTopPlayers(limit = 5, range = 'all') {
+        const cacheKey = `top_players_${limit}_${range}`;
+        
+        // Verificar cache
+        if (this.cache.has(cacheKey)) {
+            const cached = this.cache.get(cacheKey);
+            if (Date.now() - cached.timestamp < this.cacheTimeout) {
+                return cached.data;
+            }
+        }
+        
+        try {
+            // Determinar rango de jornadas
+            let jornadaRange = null;
+            if (range === 'current') {
+                const currentJornada = await this.getCurrentJornada();
+                jornadaRange = { start: currentJornada, end: currentJornada };
+            } else if (range === 'last5') {
+                const currentJornada = await this.getCurrentJornada();
+                jornadaRange = { 
+                    start: Math.max(1, currentJornada - 4), 
+                    end: currentJornada 
+                };
+            }
+            
+            // Obtener todas las estadísticas de goles
+            const goalStats = await this.getGoalStats(jornadaRange);
+            
+            // Agrupar por jugador y calcular métricas
+            const playerGoals = new Map();
+            
+            for (const stat of goalStats) {
+                const playerName = stat.player;
+                
+                if (!playerGoals.has(playerName)) {
+                    playerGoals.set(playerName, {
+                        name: playerName,
+                        team: stat.team,
+                        goals: 0,
+                        games: new Set(),
+                        jornadas: new Set()
+                    });
+                }
+                
+                const player = playerGoals.get(playerName);
+                player.goals++;
+                player.jornadas.add(stat.jornada);
+                
+                // Contar juegos únicos (por jornada)
+                player.games.add(stat.jornada);
+            }
+            
+            // Convertir a array y calcular métricas adicionales
+            const playersArray = Array.from(playerGoals.values()).map(player => {
+                const totalGames = player.games.size;
+                const goalsPerGame = totalGames > 0 ? (player.goals / totalGames) : 0;
+                
+                // Calcular tendencia (comparar últimas 3 jornadas vs anteriores)
+                const trend = this.calculatePlayerTrend(player.name, Array.from(player.jornadas));
+                
+                return {
+                    name: player.name,
+                    team: player.team,
+                    goals: player.goals,
+                    games: totalGames,
+                    goalsPerGame: Math.round(goalsPerGame * 100) / 100,
+                    trend: trend
+                };
+            });
+            
+            // Ordenar por goles (descendente) y luego por goles por partido
+            playersArray.sort((a, b) => {
+                if (b.goals !== a.goals) {
+                    return b.goals - a.goals;
+                }
+                return b.goalsPerGame - a.goalsPerGame;
+            });
+            
+            // Limitar resultados
+            const topPlayers = playersArray.slice(0, limit);
+            
+            // Guardar en cache
+            this.cache.set(cacheKey, {
+                data: topPlayers,
+                timestamp: Date.now()
+            });
+            
+            return topPlayers;
+            
+        } catch (error) {
+            console.error('Error calculando top goleadores:', error);
+            throw new Error('No se pudieron calcular las estadísticas de goleadores');
+        }
+    }
+    
+    /**
+     * Obtiene estadísticas de goles filtradas por rango de jornadas
+     * @param {Object} jornadaRange - Rango de jornadas
+     * @returns {Promise<Array>} Estadísticas de goles
+     */
+    async getGoalStats(jornadaRange = null) {
+        return new Promise((resolve, reject) => {
+            let query = "SELECT * FROM stats WHERE LOWER(action) = 'gol'";
+            const params = [];
+            
+            if (jornadaRange) {
+                if (jornadaRange.start && jornadaRange.end) {
+                    query += " AND jornada BETWEEN ? AND ?";
+                    params.push(jornadaRange.start, jornadaRange.end);
+                } else if (jornadaRange.start) {
+                    query += " AND jornada >= ?";
+                    params.push(jornadaRange.start);
+                } else if (jornadaRange.end) {
+                    query += " AND jornada <= ?";
+                    params.push(jornadaRange.end);
+                }
+            }
+            
+            query += " ORDER BY jornada DESC, id DESC";
+            
+            this.db.all(query, params, (err, rows) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows || []);
+                }
+            });
+        });
+    }
+    
+    /**
+     * Obtiene la jornada actual (la más alta en la base de datos)
+     * @returns {Promise<number>} Número de jornada actual
+     */
+    async getCurrentJornada() {
+        return new Promise((resolve, reject) => {
+            const query = "SELECT MAX(jornada) as maxJornada FROM stats";
+            
+            this.db.get(query, [], (err, row) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(row?.maxJornada || 1);
+                }
+            });
+        });
+    }
+    
+    /**
+     * Calcula la tendencia de un jugador basada en sus jornadas
+     * @param {string} playerName - Nombre del jugador
+     * @param {Array} jornadas - Array de jornadas donde anotó
+     * @returns {string} Tendencia: 'improving', 'declining', 'stable'
+     */
+    calculatePlayerTrend(playerName, jornadas) {
+        if (jornadas.length < 3) {
+            return 'stable'; // No hay suficientes datos
+        }
+        
+        // Ordenar jornadas
+        jornadas.sort((a, b) => a - b);
+        
+        // Dividir en dos mitades para comparar
+        const midPoint = Math.floor(jornadas.length / 2);
+        const firstHalf = jornadas.slice(0, midPoint);
+        const secondHalf = jornadas.slice(midPoint);
+        
+        // Calcular frecuencia de goles por jornada en cada mitad
+        const firstHalfFreq = firstHalf.length / (Math.max(...firstHalf) - Math.min(...firstHalf) + 1);
+        const secondHalfFreq = secondHalf.length / (Math.max(...secondHalf) - Math.min(...secondHalf) + 1);
+        
+        // Determinar tendencia
+        const improvement = (secondHalfFreq - firstHalfFreq) / firstHalfFreq;
+        
+        if (improvement > 0.2) {
+            return 'improving';
+        } else if (improvement < -0.2) {
+            return 'declining';
+        } else {
+            return 'stable';
+        }
+    }}
+
 
 module.exports = MetricsCalculator;
